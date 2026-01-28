@@ -44,7 +44,18 @@ def download_content(url, mode):
         'postprocessor_args': post_args,
     }
 
-    if mode == 'mp3': ydl_opts['postprocessors'].append({'key': 'EmbedThumbnail'})
+    if mode == "mp3":
+        ydl_opts = {
+            'format': 'bestaudio/best',  # حمل أفضل صوت متاح
+            'outtmpl': '%(title)s.%(ext)s',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+            'cookiefile': 'cookies.txt',  # ✅ ضروري جداً لتفادي الحظر
+            'quiet': True,
+        }
     
     if mode == "video":
        ydl_opts = {
@@ -119,6 +130,7 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.run_polling()
+
 
 
 
