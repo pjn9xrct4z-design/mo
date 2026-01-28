@@ -47,13 +47,14 @@ def download_content(url, mode):
     if mode == 'mp3': ydl_opts['postprocessors'].append({'key': 'EmbedThumbnail'})
     
     if mode == "video":
-        ydl_opts = {
-            'cookiefile': cookie_file, # 👈 وكوكيز للفيديو أيضاً
-            'format': 'best', 
-            'outtmpl': '%(title)s.%(ext)s', 
-            'quiet': True, 
-            'no_warnings': True
-        }
+       ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',
+        'outtmpl': '%(title)s.%(ext)s',
+        'merge_output_format': 'mp4',
+        'noplaylist': True,
+        'quiet': True,
+        'cookiefile': 'cookies.txt',  # ✅ هذا هو السطر الذي طلبته
+    }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -118,4 +119,5 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.run_polling()
+
 
