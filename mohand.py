@@ -79,8 +79,7 @@ def download_content(url, mode):
     except Exception as e: print(f"Error: {e}"); raise e
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("بوت ة
-    Mrمهند الحلبوسي \n ارسل رابط اي مقطع من اي موقع")
+    await update.message.reply_text(" Mrمهند الحلبوسي \n ارسل رابط اي مقطع من اي موقع")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
@@ -120,6 +119,7 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.run_polling()
+
 
 
 
