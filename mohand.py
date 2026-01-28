@@ -1,4 +1,6 @@
 import os
+import static_ffmpeg
+static_ffmpeg.add_paths()
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
@@ -171,3 +173,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
