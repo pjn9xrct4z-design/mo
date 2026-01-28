@@ -1,138 +1,166 @@
 import os
-import asyncio
-import yt_dlp
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, MessageHandler, CallbackQueryHandler, CommandHandler, filters, ContextTypes
-from flask import Flask
-from threading import Thread
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
+import yt_dlp
 
-# --- إعدادات البوت ---
-TOKEN = "8395122731:AAFU7fSt4iiau5xtwzqrM11ZtApgk_PHQvc"
+# ---------------------------------------------------------
+# 👮‍♂️ إعدادات القيادة (تعديل التوكن هنا)
+# ---------------------------------------------------------
+TOKEN = "هنا_تضع_التوكن_الجديد_الخاص_ببوتك"  # 👈 امسح هذا النص وضع التوكن الخاص بك
 
-# --- السيرفر الوهمي (Keep-Alive) ---
-app = Flask('')
-@app.route('/')
-def home(): return "I am alive! Bot is running..."
-def run(): app.run(host='0.0.0.0', port=8080)
-def keep_alive(): t = Thread(target=run); t.start()
+# اسم ملف الكوكيز (يجب أن يكون مرفوعاً في GitHub)
+COOKIES_FILE = 'cookies.txt'
 
-# --- دالة التحميل مع الكوكيز 🍪 ---
-def download_content(url, mode):
-    # إعدادات الكوكيز (السر لفك الحظر)
-    cookie_file = 'cookies.txt' 
-    
-    # التأكد من وجود ملف الكوكيز
-    if not os.path.exists(cookie_file):
-        print("تحذير: ملف cookies.txt غير موجود! قد يفشل التحميل.")
+# ---------------------------------------------------------
+# 🛠️ إعدادات السجلات (Logs) لكشف الأخطاء
+# ---------------------------------------------------------
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-    if mode == 'voice_note':
-        target_codec, filename, writethumb = 'opus', 'voice.ogg', False
-        post_args = ['-ac', '1', '-ar', '48000', '-b:a', '32k'] 
-    else:
-        target_codec, filename, writethumb = mode, 'file.%(ext)s', True
-        post_args = []
+# ---------------------------------------------------------
+# 🚀 دالة البداية (Welcome)
+# ---------------------------------------------------------
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    await update.message.reply_text(
+        f" بوت مهند الحلبوسي 1 {user.first_name}! \n"
+        "أرسل لي رابط يوتيوب وسأقوم بتحميله لك بالصيغة التي تختارها.\n"
+        "القائمة المتاحة: (Video, MP3, WAV, Voice Note)"
+    )
 
-    ydl_opts = {
-        'cookiefile': 'cookies.txt', # 👈 هنا التعديل المهم
-        'outtmpl': '%(id)s.%(ext)s',
-        'writethumbnail': writethumb,
-        'quiet': True,
-        'no_warnings': True,
-        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
-        'source_address': '0.0.0.0',
-        'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': target_codec, 'preferredquality': '192' if mode != 'voice_note' else '32'}],
-        'postprocessor_args': post_args,
-    }
-
-    if mode == "mp3":
-        ydl_opts = {
-            'format': 'bestaudio/best',  # حمل أفضل صوت متاح
-            'outtmpl': '%(title)s.%(ext)s',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-              # ✅ ضروري جداً لتفادي الحظر
-            'quiet': True,
-        }
-    
-    if mode == "video":
-       ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',
-        'outtmpl': '%(title)s.%(ext)s',
-        'merge_output_format': 'mp4',
-        'noplaylist': True,
-        'quiet': True,
+# ---------------------------------------------------------
+# 📨 معالجة الرابط (إظهار الأزرار)
+# ---------------------------------------------------------
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if "youtube.com" in text or "youtu.be" in text:
+        # حفظ الرابط لاستخدامه عند ضغط الزر
+        context.user_data['url'] = text
         
-    }
+        # تصميم لوحة الأزرار
+        keyboard = [
+            [InlineKeyboardButton("🎬 فيديو (MP4)", callback_data='video'),
+             InlineKeyboardButton("🎧 صوت (MP3)", callback_data='mp3')],
+            [InlineKeyboardButton("🎼 جودة عالية (WAV)", callback_data='wav'),
+             InlineKeyboardButton("🎙️ بصمة صوتية (Voice)", callback_data='voice')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("اختر نوع التحميل يا بطل: 👇", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("يرجى إرسال رابط يوتيوب صحيح. ❌")
+
+# ---------------------------------------------------------
+# ⚙️ المحرك الرئيسي للتحميل (Download Engine)
+# ---------------------------------------------------------
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    mode = query.data
+    url = context.user_data.get('url')
+    
+    await query.answer()
+    await query.edit_message_text(text=f"جاري التحميل بوضع: {mode.upper()}... ⏳\nيرجى الانتظار، العمليات جارية.")
 
     try:
+        # إعدادات عامة ومشتركة
+        ydl_opts = {
+            'outtmpl': '%(title)s.%(ext)s',
+            'quiet': True,
+            'no_warnings': True,
+            'noplaylist': True,
+            'cookiefile': COOKIES_FILE,  # ✅ الكوكيز موجود في كل الأوضاع
+        }
+
+        # تخصيص الإعدادات حسب الوضع المختار
+        if mode == 'video':
+            ydl_opts.update({
+                'format': 'bestvideo+bestaudio/best', # أفضل جودة متاحة
+                'merge_output_format': 'mp4',
+            })
+        
+        elif mode == 'mp3':
+            ydl_opts.update({
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+            })
+
+        elif mode == 'wav':
+            ydl_opts.update({
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'wav',
+                }],
+            })
+            
+        elif mode == 'voice': # بصمة صوتية للتليجرام
+            ydl_opts.update({
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'vorbis', # OGG format
+                }],
+                'outtmpl': '%(title)s.ogg' # نجبر الصيغة لتكون OGG
+            })
+
+        # --- بدء التحميل الفعلي ---
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            filepath = info['requested_downloads'][0]['filepath'] if 'requested_downloads' in info else ydl.prepare_filename(info)
-            
-            if mode == 'voice_note':
-                pre, ext = os.path.splitext(filepath)
-                new_path = pre + '.ogg'
-                if filepath != new_path and os.path.exists(filepath):
-                    if os.path.exists(new_path): os.remove(new_path)
-                    os.rename(filepath, new_path)
-                    filepath = new_path
-                elif not os.path.exists(filepath) and os.path.exists(new_path): filepath = new_path
-            
-            base_name = os.path.splitext(filepath)[0]
-            thumb_path = None
-            for ext in ['.jpg', '.webp', '.png']:
-                if os.path.exists(base_name + ext): thumb_path = base_name + ext; break
-            
-            return {'filepath': filepath, 'title': info.get('title', 'Video'), 'uploader': info.get('uploader', 'Unknown'), 'thumbnail': thumb_path}
-    except Exception as e: print(f"Error: {e}"); raise e
+            # الحصول على اسم الملف المحمل
+            if mode == 'voice':
+                 filename = ydl.prepare_filename(info).rsplit('.', 1)[0] + ".ogg"
+            elif mode == 'mp3':
+                 filename = ydl.prepare_filename(info).rsplit('.', 1)[0] + ".mp3"
+            elif mode == 'wav':
+                 filename = ydl.prepare_filename(info).rsplit('.', 1)[0] + ".wav"
+            else: # video
+                 filename = ydl.prepare_filename(info)
+                 if not filename.endswith('.mp4'): # fix for merged files
+                     filename = filename.rsplit('.', 1)[0] + ".mp4"
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(" Mrمهند الحلبوسي \n ارسل رابط اي مقطع من اي موقع")
+        # --- الإرسال للمستخدم ---
+        await query.edit_message_text(text="جاري الرفع... 🚀")
+        
+        chat_id = update.effective_chat.id
+        with open(filename, 'rb') as f:
+            if mode == 'video':
+                await context.bot.send_video(chat_id=chat_id, video=f, caption=" حلابسة")
+            elif mode == 'voice':
+                await context.bot.send_voice(chat_id=chat_id, voice=f, caption="بصمة صوتية 🎙️")
+            else: # mp3 or wav
+                await context.bot.send_audio(chat_id=chat_id, audio=f, title=info.get('title', 'Audio'), caption="تم سحب الصوت 🎧")
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text
-    if "http" not in url: return
-    context.user_data['url'] = url
-    keyboard = [[InlineKeyboardButton("فيديو 🎬", callback_data="video"), InlineKeyboardButton("صوت MP3 🎵", callback_data="mp3")], [InlineKeyboardButton("صوت WAV 🔊", callback_data="wav"), InlineKeyboardButton("بصمة صوتية 🎙️", callback_data="voice_note")]]
-    await update.message.reply_text("اختار الصيغة:", reply_markup=InlineKeyboardMarkup(keyboard))
+        # --- تنظيف المخلفات (حذف الملف) ---
+        if os.path.exists(filename):
+            os.remove(filename)
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    mode, url = query.data, context.user_data.get('url')
-    await query.edit_message_text(f"جاري المعالجة... ⏳")
-    try:
-        data = await asyncio.to_thread(download_content, url, mode)
-        file_path = data['filepath']
-        if os.path.exists(file_path):
-            with open(file_path, 'rb') as f:
-                args = {'chat_id': query.message.chat_id, 'write_timeout': 1000, 'connect_timeout': 1000}
-                if mode == "video": await context.bot.send_video(video=f, caption=data['title'], **args)
-                elif mode == "voice_note": await context.bot.send_voice(voice=f, **args)
-                else:
-                    thumb = open(data['thumbnail'], 'rb') if data.get('thumbnail') else None
-                    await context.bot.send_audio(audio=f, title=data['title'], performer=data['uploader'], thumbnail=thumb, **args)
-            try: await query.message.delete() 
-            except: pass
-            os.remove(file_path)
-            if data.get('thumbnail'): os.remove(data['thumbnail'])
-        else: await query.message.reply_text("فشل الملف.")
-    except Exception as e: await query.message.reply_text(f"حدث خطأ: {e}")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        await query.edit_message_text(text=f"حدث خطأ أثناء العملية: {str(e)}")
 
-if __name__ == '__main__':
-    keep_alive()
-    print("BOT STARTED WITH COOKIES...")
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.run_polling()
+# ---------------------------------------------------------
+# 🔌 التشغيل الرئيسي
+# ---------------------------------------------------------
+def main():
+    # التأكد من وجود ملف الكوكيز
+    if not os.path.exists(COOKIES_FILE):
+        print(f"⚠️ تحذير: ملف {COOKIES_FILE} غير موجود! البوت قد يفشل في التحميل.")
 
+    application = Application.builder().token(TOKEN).build()
 
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CallbackQueryHandler(button_click))
 
+    print("Bot is running... 🟢")
+    application.run_polling()
 
-
-
+if __name__ == "__main__":
+    main()
