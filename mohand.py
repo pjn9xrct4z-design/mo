@@ -33,7 +33,7 @@ def download_content(url, mode):
         post_args = []
 
     ydl_opts = {
-        'cookiefile': cookie_file, # 👈 هنا التعديل المهم
+        'cookiefile': 'cookies.txt', # 👈 هنا التعديل المهم
         'outtmpl': '%(id)s.%(ext)s',
         'writethumbnail': writethumb,
         'quiet': True,
@@ -118,3 +118,4 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.run_polling()
+
