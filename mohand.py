@@ -53,7 +53,7 @@ def download_content(url, mode):
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
-            'cookiefile': 'cookies.txt',  # ✅ ضروري جداً لتفادي الحظر
+              # ✅ ضروري جداً لتفادي الحظر
             'quiet': True,
         }
     
@@ -64,7 +64,7 @@ def download_content(url, mode):
         'merge_output_format': 'mp4',
         'noplaylist': True,
         'quiet': True,
-        'cookiefile': 'cookies.txt',  # ✅ هذا هو السطر الذي طلبته
+        
     }
 
     try:
@@ -130,6 +130,7 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.run_polling()
+
 
 
 
