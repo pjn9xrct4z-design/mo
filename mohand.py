@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "أهلاً سيادة الملازم! 🫡\n"
+        "بوت مهند الحلبوسي! 🫡\n"
         "أرسل رابط يوتيوب وسأحوله لك فوراً (فيديو، MP3، أو بصمة).\n"
         "جاهز للتنفيذ! 🚀"
     )
@@ -47,7 +47,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
              InlineKeyboardButton("🎙️ بصمة (Voice)", callback_data='voice')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("تم استلام الهدف. اختر نوع الذخيرة: 👇", reply_markup=reply_markup)
+        await update.message.reply_text("تم استلام الهدف. اختر نوع : 👇", reply_markup=reply_markup)
     else:
         await update.message.reply_text("الرابط غير صالح سيدي! أرسل رابط يوتيوب صحيح. ❌")
 
@@ -173,4 +173,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
