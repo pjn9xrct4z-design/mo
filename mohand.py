@@ -8,7 +8,7 @@ import yt_dlp
 
 # --- الإعدادات ---
 # ضع التوكن الخاص بك هنا
-TOKEN = "YOUR_TOKEN_HERE" 
+TOKEN = "8395122731:AAFU7fSt4iiau5xtwzqrM11ZtApgk_PHQvc" 
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -114,3 +114,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
